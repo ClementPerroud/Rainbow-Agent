@@ -1,0 +1,32 @@
+{
+    "name":"Rainbow",
+
+    "distributional": true,
+    "v_min":-200,
+    "v_max":200,
+    "nb_atoms":51,
+
+    "adversarial":true,
+
+    "noisy": true,
+
+    "windows": 5,
+
+    "prioritized_function": true, 
+    "importance_weights_function" : true,
+    "epsilon_function" : true,
+
+    "nb_states": 8,
+    "nb_actions": 4,
+    "multi_steps": 3,
+    "gamma": 0.99,
+    "replay_capacity": 1E6,
+    "learning_rate": 5E-3,
+    "units": [32, 32],
+    "dropout": 0,
+    "l2_reg": null,
+    "tau": 3000,
+    "batch_size": 128,
+    "train_every": 4
+
+}

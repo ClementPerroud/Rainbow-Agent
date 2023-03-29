@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 from utils.memories import TransitionMemory, LSTMTransitionMemory, BufferMultiSteps, ObservationBuffer
 from utils.models import ModelBuilder
+
 class Rainbow:
     def __init__(self,
             nb_states, 
@@ -23,9 +24,10 @@ class Rainbow:
             noisy = False,
             prioritized_function = lambda td_errors : 1,
             importance_weights_function = lambda episode_count, nb_step : 0,
-            train_every = 1
+            train_every = 1,
+            name = "Rainbow",
         ):
-
+        self.name = name
         self.nb_states = nb_states
         self.nb_actions = nb_actions
         self.gamma =  tf.cast(gamma, dtype= tf.float32)
@@ -43,7 +45,7 @@ class Rainbow:
         self.multi_steps = multi_steps
         self.windows = windows
         self.noisy = noisy
-        
+
         self.nb_atoms = nb_atoms
         self.v_min = v_min
         self.v_max = v_max
@@ -110,7 +112,7 @@ class Rainbow:
         self.start_time = datetime.datetime.now()
 
         # Initialize Tensorboard
-        self.log_dir = f"logs/{self.__class__.__name__}_{self.start_time.strftime('%Y_%m_%d-%H_%M_%S')}"
+        self.log_dir = f"logs/{name}_{self.start_time.strftime('%Y_%m_%d-%H_%M_%S')}"
         self.train_summary_writer = tf.summary.create_file_writer(self.log_dir)
 
 
@@ -131,10 +133,10 @@ class Rainbow:
 
             # Tensorboard
             with self.train_summary_writer.as_default():
-                tf.summary.scalar('Loss', self.episodes_history["mean_loss"][-1], step=self.total_stats["training_episode_count"])
-                tf.summary.scalar('Total rewards', self.episodes_history["total_rewards"][-1], step=self.total_stats["training_episode_count"])    
-                tf.summary.scalar('Rewards / 1000 step', self.episodes_history['total_rewards'][-1]/self.episodes_history['steps'][-1]*1000, step=self.total_stats["training_episode_count"])    
-                tf.summary.scalar('Steps', self.episodes_history['steps'][-1], step=self.total_stats["training_episode_count"])    
+                tf.summary.scalar('Episode Mean Loss', self.episodes_history["mean_loss"][-1], step=self.total_stats["training_episode_count"])
+                tf.summary.scalar('Episode Total rewards', self.episodes_history["total_rewards"][-1], step=self.total_stats["training_episode_count"])    
+                tf.summary.scalar('Episode Rewards / 1000 step', self.episodes_history['total_rewards'][-1]/self.episodes_history['steps'][-1]*1000, step=self.total_stats["training_episode_count"])    
+                tf.summary.scalar('Episode Steps', self.episodes_history['steps'][-1], step=self.total_stats["training_episode_count"])    
         
         self.episode_stats = {
             "steps":0,
@@ -166,6 +168,10 @@ class Rainbow:
         if done or truncated:
             self.reset()
             self.log()
+        
+        # Tensorboard
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar('Step Training Reward', reward, step = self.total_stats['training_steps'])
     
     def train(self):
         if self.memory.size() < self.batch_size or self.get_current_epsilon() >= 1:
@@ -180,9 +186,13 @@ class Rainbow:
         loss_value, td_errors = self.train_step(states, actions, rewards, states_prime, dones, importance_weights)
         self.memory.update_probabilities(batch_indexes, td_errors)
 
+        loss_value = float(loss_value)
+        self.episode_stats["losses"].append(loss_value)
+        self.total_stats["losses"].append(loss_value)
 
-        self.episode_stats["losses"].append(float(loss_value))
-        self.total_stats["losses"].append(float(loss_value))
+        # Tensorboard
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar('Step Training Loss', loss_value, step = self.total_stats['training_steps'])
 
     def log(self):
         if not self.episodes_history["is_eval"][-1]: # Training
