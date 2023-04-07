@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 
 
-class TransitionMemory():
-    def __init__(self, capacity, nb_states, prioritized_function = lambda td_errors : 1):
+class ReplayMemory():
+    def __init__(self, capacity, nb_states, prioritized = True, alpha = 0.65):
         self.capacity = int(capacity)
         self.nb_states= int(nb_states)
         self.i = 0
@@ -12,8 +12,9 @@ class TransitionMemory():
         self.rewards_memory = np.zeros(shape=(self.capacity,), dtype= np.float32)
         self.states_prime_memory = np.zeros(shape=(self.capacity, self.nb_states), dtype= np.float32)
         self.done_memory = np.full(shape=(self.capacity,), fill_value=0, dtype= np.int16)
-        self.probabilities = np.full(shape=(self.capacity,), fill_value = 1E3, dtype= np.float32)
-        self.prioritized_function = prioritized_function
+        self.priorities = np.full(shape=(self.capacity,), fill_value = 1E3, dtype= np.float32)
+        self.prioritized = prioritized
+        self.alpha = alpha
 
     def store(self, s, a, r, s_p, done):
         i = self.i % self.capacity
@@ -27,113 +28,86 @@ class TransitionMemory():
     def size(self):
         return min(self.i,self.capacity)
     
-    def sample(self, batch_size):
+    def sample(self, batch_size, beta = 0.4):
+        if beta >= 1: self.prioritized = False
         size = self.size()
-        batch = np.random.choice(size, size = batch_size, p = self.probabilities[:size]/np.sum(self.probabilities[:size]), replace=False)
+        if self.prioritized:
+            probabilities = self.priorities[:size] /np.sum(self.priorities[:size])
+            batch = np.random.choice(size, size = batch_size,
+                p = probabilities,
+                replace=False
+            )
+            weights = (size * probabilities[batch] ) ** (- beta)
+            weights = weights / np.amax(weights)
+        else:
+            batch = np.random.choice(size, size = batch_size,
+                replace=False
+            )
+            weights = 1
         return \
             batch,\
             self.states_memory[batch],\
             self.actions_memory[batch],\
             self.rewards_memory[batch],\
             self.states_prime_memory[batch],\
-            self.done_memory[batch]
+            self.done_memory[batch],\
+            weights
 
-    def update_probabilities(self, batch, td_errors):
-        self.probabilities[batch] = self.prioritized_function(np.array(td_errors)) + 0.1
+    def update_priority(self, batch, td_errors):
+        if self.prioritized: self.priorities[batch] = (np.abs(td_errors)+ 1E-1)**self.alpha 
 
-    def get_importance_weights(self, batch, beta = 0.4):
-        size = self.size()
-        weights = (1 / (size * self.probabilities[batch] / np.sum(self.probabilities[:size]))) ** beta
-        return weights / np.amax(weights)
 
-class LSTMTransitionMemory(TransitionMemory):
-    def __init__(self, capacity, seq_len, nb_states, prioritized_function):
-        super().__init__(capacity, nb_states, prioritized_function)
-        self.seq_len = seq_len
-        self.states_memory = np.zeros(shape=(self.capacity, self.seq_len,self.nb_states), dtype = np.float32)
-        self.states_prime_memory = np.zeros(shape=(self.capacity,self.seq_len, self.nb_states), dtype= np.float32)
+class RNNReplayMemory(ReplayMemory):
+    def __init__(self, window, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.window = window
+        self.states_memory = np.zeros(shape=(self.capacity, self.window,self.nb_states), dtype = np.float32)
+        self.states_prime_memory = np.zeros(shape=(self.capacity,self.window, self.nb_states), dtype= np.float32)
 
-class ObservationBuffer:
+class RNNBuffer:
     def __init__(self, windows, nb_states):
         self.windows = windows
         self.nb_states = nb_states
         self.reset()
     def reset(self):
-        if self.windows is not None:
-            self.inputs = np.zeros(shape = (self.windows, self.nb_states))
-    def update(self, obs):
-        if self.windows is not None:
-            self.inputs[:-1] = self.inputs[1:]
-            self.inputs[-1] = obs
-            return self.inputs
-        else: self.inputs = obs
-    def get_inputs(self):
+        self.inputs = np.zeros(shape = (self.windows, self.nb_states))
+    def append(self, obs):
+        self.inputs[:-1] = self.inputs[1:]
+        self.inputs[-1] = obs
+        return self
+    def get(self):
         return self.inputs
 
-class BufferMultiSteps:
-    def __init__(self, multi_steps, nb_states, gamma, windows):
+class MultiStepsBuffer:
+    def __init__(self, multi_steps, gamma):
         self.multi_steps = multi_steps
-        self.nb_states = nb_states
-        self.windows = windows if windows is not None else 1
 
-        self.start = self.windows - 1
-        self.dim = self.multi_steps + self.start
         self.gamma_array = np.array([gamma ** i for i in range(self.multi_steps)])
         self.reset()
-        if self.windows == 1:
-            self.get_multi_steps_memory = self._get_multi_steps_memory_no_windows
-        else: self.get_multi_steps_memory = self._get_multi_steps_memory_windows
     def reset(self):
-        self.state = np.zeros(shape = (self.dim, self.nb_states))
-        self.action = np.zeros(shape = (self.dim,))
-        self.reward = np.zeros(shape = (self.dim,))
-        self.next_state = np.zeros(shape = (self.dim, self.nb_states))
-        self.done = np.zeros(shape = (self.dim,))
-        self.truncated = np.zeros(shape = (self.dim,))
-        
-        self.len = 0
+        self.states = [None]*self.multi_steps
+        self.actions =  [None]*self.multi_steps
+        self.rewards = np.zeros(shape=(self.multi_steps,))
+        self.next_states = None
+        self.dones = np.zeros(shape=(self.multi_steps,))
 
-    def _append_array(array, value):
-        array[:-1] = array[1:]
-        array[-1] = value
-        return array
 
-    def append(self, state, action, reward, next_state, done, truncated):
-        if self.dim > 1:
-            self.state[:-1] = self.state[1:]
-            self.action[:-1] = self.action[1:]
-            self.reward[:-1] = self.reward[1:]
-            self.next_state[:-1] = self.next_state[1:]
-            self.done[:-1] = self.done[1:]
-            self.truncated[:-1] = self.truncated[1:]
-        
-        
-        self.state[-1] = state
-        self.action[-1] = action
-        self.reward[-1] = reward
-        self.next_state[-1] = next_state
-        self.done[-1] = done
-        self.truncated[-1] = truncated
-        
-        self.len += 1
+    def add(self, state, action, reward,  next_state, done):
+        self.states.append(state)
+        self.states = self.states[1:]
 
-    def _get_multi_steps_memory_windows(self):
-        if self.len >= self.dim :
-            return (
-                self.state[0:self.windows], 
-                self.action[self.windows-1],
-                np.sum(self.reward[self.start:] * self.gamma_array),
-                self.next_state[-self.windows:],
-                self.done[-1]
-            )
-        return None
-    def _get_multi_steps_memory_no_windows(self):
-        if self.len >= self.dim :
-            return (
-                self.state[0], 
-                self.action[0],
-                np.sum(self.reward * self.gamma_array),
-                self.next_state[-1],
-                self.done[-1]
-            )
-        return None
+        self.actions.append(action)
+        self.actions = self.actions[1:]
+
+        self.rewards[0:-1] = self.rewards[1:]
+        self.rewards[-1] = reward
+
+        self.next_states = next_state
+
+        self.dones[0:-1] = self.dones[1:]
+        self.dones[-1] = done
+
+    def is_full(self):
+        return self.states[0] is not None
+    def get_multi_step_replay(self):
+        return self.states[0], self.actions[0], (self.rewards * self.gamma_array).sum(), self.next_states, (self.dones.sum() > 0)
