@@ -1,51 +1,54 @@
-# Use to perform the math behing priorization
+import numpy as np
 class SumTree:
     def __init__(self, size):
-        self.nodes = [0] * (2 * size - 1)
-        self.data = [None] * size
-
         self.size = size
+        
+        self.node_layers = [np.array([0.]*size)]
+        layer_size = size
+        while layer_size > 1:
+            layer_size = (layer_size + 1)//2
+            self.node_layers.append(np.array([0.]*layer_size))
+        self.layer_len = len(self.node_layers)
+        self.layer_lens = [len(layer) for layer in self.node_layers]
+        self.new_leafs = []
         self.count = 0
-        self.real_size = 0
+    def __setitem__(self, loc, value):
+        if isinstance(loc, int):
+            idx = loc
+            change = value - self.node_layers[0][idx]
+            self.node_layers[0][idx] = value
 
-    @property
-    def total(self):
-        return self.nodes[0]
+            for idx_layer in range(1, self.layer_len):
+                idx = idx // 2 # Get parent index
+                self.node_layers[idx_layer][idx] += change
+        else: # List, array ...
+            for i in range(len(loc)): self.__setitem__(loc[i], value[i])
+    def __getitem__(self, loc):
+        return self.node_layers[0][loc]
+    def add(self, i):
+        self[i] = 3 * self.sum() / self.count if self.count > 0 else 1
+        self.new_leafs.append(i)
+        self.count = min(self.count + 1, self.sum())
 
-    def update(self, data_idx, value):
-        idx = data_idx + self.size - 1  # child index in tree array
-        change = value - self.nodes[idx]
 
-        self.nodes[idx] = value
+    def sum(self):
+        return self.node_layers[self.layer_len -1][0]
+    def sample(self, batch_size):
+        batch = []
+        while len(self.new_leafs) > 0 and len(batch) < batch_size:
+            batch.append(self.new_leafs.pop(0))
+        batch_size -= len(batch)
+        random_cumsums = np.random.rand(batch_size)*self.sum()
+        for i in range(batch_size):
+            cumsum = random_cumsums[i]
 
-        parent = (idx - 1) // 2
-        while parent >= 0:
-            self.nodes[parent] += change
-            parent = (parent - 1) // 2
-
-    def add(self, value, data):
-        self.data[self.count] = data
-        self.update(self.count, value)
-
-        self.count = (self.count + 1) % self.size
-        self.real_size = min(self.size, self.real_size + 1)
-
-    def get(self, cumsum):
-        assert cumsum <= self.total
-
-        idx = 0
-        while 2 * idx + 1 < len(self.nodes):
-            left, right = 2*idx + 1, 2*idx + 2
-
-            if cumsum <= self.nodes[left]:
-                idx = left
-            else:
-                idx = right
-                cumsum = cumsum - self.nodes[left]
-
-        data_idx = idx - self.size + 1
-
-        return data_idx, self.nodes[idx], self.data[data_idx]
-
-    def __repr__(self):
-        return f"SumTree(nodes={self.nodes.__repr__()}, data={self.data.__repr__()})"
+            idx = 0
+            for i_layer in range(self.layer_len-1, 0, -1):
+                left_child_index, right_child_index = idx*2, idx*2+1
+                if cumsum < self.node_layers[i_layer-1][left_child_index]:
+                    idx = left_child_index
+                else:
+                    idx = right_child_index
+                    cumsum -= self.node_layers[i_layer-1][left_child_index]
+            batch.append(idx)
+        return batch

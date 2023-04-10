@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-
+from utils.binary_heap import SumTree
 
 class ReplayMemory():
     def __init__(self, capacity, nb_states, prioritized = True, alpha = 0.65):
@@ -12,9 +12,12 @@ class ReplayMemory():
         self.rewards_memory = np.zeros(shape=(self.capacity,), dtype= np.float32)
         self.states_prime_memory = np.zeros(shape=(self.capacity, self.nb_states), dtype= np.float32)
         self.done_memory = np.full(shape=(self.capacity,), fill_value=0, dtype= np.int16)
-        self.priorities = np.full(shape=(self.capacity,), fill_value = 1E3, dtype= np.float32)
+
         self.prioritized = prioritized
-        self.alpha = alpha
+        if self.prioritized:
+            # self.priorities = np.full(shape=(self.capacity,), fill_value = 1E3, dtype= np.float32)
+            self.priorities = SumTree(size= self.capacity)
+            self.alpha = alpha
 
     def store(self, s, a, r, s_p, done):
         i = self.i % self.capacity
@@ -23,7 +26,9 @@ class ReplayMemory():
         self.rewards_memory[i] = r
         self.states_prime_memory[i] = s_p
         self.done_memory[i] = 1 - int(done)
+        self.priorities.add(i)
         self.i += 1
+       
         
     def size(self):
         return min(self.i,self.capacity)
@@ -32,12 +37,13 @@ class ReplayMemory():
         if beta >= 1: self.prioritized = False
         size = self.size()
         if self.prioritized:
-            probabilities = self.priorities[:size] /np.sum(self.priorities[:size])
-            batch = np.random.choice(size, size = batch_size,
-                p = probabilities,
-                replace=False
-            )
-            weights = (size * probabilities[batch] ) ** (- beta)
+            # probabilities = self.priorities[:size] /np.sum(self.priorities[:size])
+            # batch = np.random.choice(size, size = batch_size,
+            #     p = probabilities,
+            #     replace=False
+            # )
+            batch = self.priorities.sample(batch_size)
+            weights = (size * self.priorities[batch]/self.priorities.sum() ) ** (- beta)
             weights = weights / np.amax(weights)
         else:
             batch = np.random.choice(size, size = batch_size,
@@ -54,7 +60,7 @@ class ReplayMemory():
             weights
 
     def update_priority(self, batch, td_errors):
-        if self.prioritized: self.priorities[batch] = (np.abs(td_errors)+ 1E-1)**self.alpha 
+        if self.prioritized: self.priorities[batch] = (np.abs(td_errors)+ 1E-1)**self.alpha
 
 
 class RNNReplayMemory(ReplayMemory):

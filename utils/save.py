@@ -37,7 +37,6 @@ def save_agent(agent, path):
 
     agent.model = model
     agent.target_model = target_model
-    agent.target_model = target_model
     agent.memory.states_memory = states_memory
     agent.memory.actions_memory = actions_memory
     agent.memory.rewards_memory = rewards_memory
