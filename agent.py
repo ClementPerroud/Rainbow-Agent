@@ -100,14 +100,6 @@ class Rainbow:
         if self.distributional:
             self.delta_z = (v_max - v_min)/(nb_atoms - 1)
             self.zs = tf.constant([v_min + i*self.delta_z for i in range(nb_atoms)], dtype= tf.float32)
-            self.train_step = tf.function(self._distributional_train_step)
-            self.pick_action = tf.function(self._distributional_pick_action)
-            self.pick_actions = tf.function(self._distributional_pick_actions)
-        # Classic training
-        else:
-            self.train_step = tf.function(self._train_step)
-            self.pick_action = tf.function(self._pick_action)
-            self.pick_actions = tf.function(self._pick_actions)
 
         self.start_time = datetime.datetime.now()
         
@@ -193,9 +185,20 @@ class Rainbow:
         s = t.total_seconds() % (60)
         return f"{h:02.0f}:{m:02.0f}:{s:02.0f}"
    
+
+    def train_step(self, *args, **kwargs):
+        if self.distributional: return self._distributional_train_step(*args, **kwargs)
+        return self._classic_train_step(*args, **kwargs)
+    def pick_action(self, *args, **kwargs):
+        if self.distributional: return self._distributional_pick_action(*args, **kwargs)
+        return self._classic_pick_action(*args, **kwargs)
+    def pick_actions(self, *args, **kwargs):
+        if self.distributional: return self._distributional_pick_actions(*args, **kwargs)
+        return self._classic_pick_actions(*args, **kwargs)
+
     # Classic DQN Core Functions
     @tf.function
-    def _train_step(self, states, actions, rewards_n, states_prime_n, dones_n, weights):
+    def __classic_train_step(self, states, actions, rewards_n, states_prime_n, dones_n, weights):
         best_ap =tf.argmax(self.model(states_prime_n, training = False), axis = 1)
         max_q_sp_ap = tf.gather_nd(
             params = self.target_model(states_prime_n, training = False), 
@@ -216,11 +219,11 @@ class Rainbow:
         return loss_value, td_errors
 
     @tf.function
-    def _pick_actions(self, states):
+    def __classic_pick_actions(self, states):
         return tf.argmax(self.model(states, training = False), axis = 1)
     
     @tf.function
-    def _pick_action(self, state):
+    def __classic_pick_action(self, state):
         return tf.argmax(self.model(state[tf.newaxis, ...], training = False), axis = 1)
 
     # Distributional Core Functions
