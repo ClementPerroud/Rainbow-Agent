@@ -198,7 +198,7 @@ class Rainbow:
 
     # Classic DQN Core Functions
     @tf.function
-    def __classic_train_step(self, states, actions, rewards_n, states_prime_n, dones_n, weights):
+    def _classic_train_step(self, states, actions, rewards_n, states_prime_n, dones_n, weights):
         best_ap =tf.argmax(self.model(states_prime_n, training = False), axis = 1)
         max_q_sp_ap = tf.gather_nd(
             params = self.target_model(states_prime_n, training = False), 
@@ -219,11 +219,11 @@ class Rainbow:
         return loss_value, td_errors
 
     @tf.function
-    def __classic_pick_actions(self, states):
+    def _classic_pick_actions(self, states):
         return tf.argmax(self.model(states, training = False), axis = 1)
     
     @tf.function
-    def __classic_pick_action(self, state):
+    def _classic_pick_action(self, state):
         return tf.argmax(self.model(state[tf.newaxis, ...], training = False), axis = 1)
 
     # Distributional Core Functions
