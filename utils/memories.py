@@ -26,7 +26,7 @@ class ReplayMemory():
         self.rewards_memory[i] = r
         self.states_prime_memory[i] = s_p
         self.done_memory[i] = 1 - int(done)
-        self.priorities.add(i)
+        if self.prioritized: self.priorities.add(i)
         self.i += 1
        
         

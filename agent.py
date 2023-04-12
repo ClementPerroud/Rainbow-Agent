@@ -1,8 +1,8 @@
 import tensorflow as tf
 import numpy as np
 import datetime
-from utils.memories import ReplayMemory, RNNReplayMemory, MultiStepsBuffer, RNNBuffer
-from utils.models import ModelBuilder
+from .utils.memories import ReplayMemory, RNNReplayMemory, MultiStepsBuffer, RNNBuffer
+from .utils.models import ModelBuilder
 
 class Rainbow:
     def __init__(self,

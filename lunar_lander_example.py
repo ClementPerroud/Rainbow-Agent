@@ -1,4 +1,6 @@
 
+import sys
+sys.path.append("../")
 import gym
 from agent import Rainbow
 
