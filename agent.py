@@ -77,11 +77,13 @@ class Rainbow:
         input_shape = (None, nb_states)
         self.model = model_builder.build_model(trainable= True)
         self.model.build(input_shape)
+        self.model.compile(
+            optimizer= tf.keras.optimizers.legacy.Adam(self.learning_rate, epsilon= 1.5E-4)
+        )
 
         self.target_model = model_builder.build_model(trainable= False)
         self.target_model.build(input_shape)
         self.target_model.set_weights(self.model.get_weights())
-        self.optimizer = tf.keras.optimizers.legacy.Adam(self.learning_rate, epsilon= 1.5E-4)
 
 
         # Initialize Tensorboard
@@ -210,8 +212,7 @@ class Rainbow:
             td_errors = tf.math.abs(q_a_target - q_a_prediction)
             td_errors_weighted = td_errors*tf.cast(weights, tf.float32)
             loss_value = tf.math.reduce_mean(tf.square(td_errors_weighted))
-        grads = tape.gradient(loss_value, self.model.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+        self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
         return loss_value, td_errors
 
     @tf.function
@@ -276,7 +277,7 @@ class Rainbow:
             td_errors = - tf.reduce_sum( m * tf.math.log(tf.clip_by_value(p__s_a , 1E-6, 1.0 - 1E-6)), axis = -1)
             td_errors_weighted = td_errors *tf.cast(weights, tf.float32)
             loss_value = tf.math.reduce_mean(td_errors_weighted)
-            grads = tape.gradient(loss_value, self.model.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
+        
+        self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
         return loss_value, td_errors
 
