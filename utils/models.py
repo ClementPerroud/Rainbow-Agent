@@ -92,7 +92,7 @@ class ModelBuilder():
             value_stream = tf.keras.layers.Dropout(self.dropout)(value_stream)
             value_stream = self.dense(units = 1, trainable=trainable)(value_stream)
 
-            output = AdversarialModelAgregator()({"value" :value_stream, "actions" : action_stream})
+            output = AdversarialModelAgregator()({"value" :value_stream, "actions" : action_stream})[:, 0, :]
         # Classic
         else:
             output = tf.keras.layers.Dense(units=self.nb_actions, trainable=trainable)(main_stream)
