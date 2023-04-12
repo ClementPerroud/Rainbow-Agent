@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from utils.binary_heap import SumTree
+from .binary_heap import SumTree
 
 class ReplayMemory():
     def __init__(self, capacity, nb_states, prioritized = True, alpha = 0.65):
