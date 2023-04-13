@@ -92,6 +92,11 @@ class Rainbow:
         # History
         self.steps = 0
         self.episode_count = -1
+
+        self.losses = []
+        self.episode_rewards = [[] for _ in range(self.simultaneous_training_env)]
+        self.episode_count = [0 for _ in range(self.simultaneous_training_env)]
+        self.episode_steps = [[] for _ in range(self.simultaneous_training_env)]
         self.new_episode()
 
         #INITIALIZE CORE FUNCTIONS
@@ -102,11 +107,10 @@ class Rainbow:
 
         self.start_time = datetime.datetime.now()
         
-    def new_episode(self):
-        self.episode_count += 1
-        self.episode_steps = 0
-        self.episode_losses = []
-        self.episode_rewards = []
+    def new_episode(self, i_env):
+        self.episode_count[i_env] += 1
+        self.episode_steps[i_env] = 0
+        self.episode_rewards[i_env] = []
         
     
     def store_replay(self, state, action, reward, next_state, done, truncated, i_env = 0):
@@ -126,8 +130,8 @@ class Rainbow:
         self.episode_rewards.append(reward)
 
         if done or truncated:
-            self.log()
-            self.new_episode()
+            self.log(i_env)
+            self.new_episode(i_env)
     def store_replays(self, states, actions, rewards, next_states, dones, truncateds):
         for i_env in range(len(actions)):
             self.store_replay(
@@ -153,15 +157,15 @@ class Rainbow:
             loss_value, td_errors = self.train_step(states, actions, rewards, states_prime, dones, importance_weights)
             self.replay_memory.update_priority(batch_indexes, td_errors)
 
-            self.episode_losses.append(float(loss_value))
+            self.losses.append(float(loss_value))
 
         # Tensorboard
         # with self.train_summary_writer.as_default():
         #     tf.summary.scalar('Step Training Loss', loss_value, step = self.total_stats['training_steps'])
 
-    def log(self):
+    def log(self, i_env = 0):
         text_print =f"\
-↳ {self.episode_count:03} : {self.steps: 8d}   |   {self.format_time(datetime.datetime.now() - self.start_time)}   |   Epsilon : {self.get_current_epsilon()*100: 4.2f}%   |   Mean Loss : {np.mean(self.episode_losses):0.4E}   |   Tot. Rewards : {np.sum(self.episode_rewards): 8.2f}   |   Rewards (/1000 steps) : {1000 * np.sum(self.episode_rewards) / self.episode_steps: 8.2f}   |   Length : {self.episode_steps: 6.0f}"
+↳ Env {i_env} : {self.episode_count[i_env]:03} : {self.steps: 8d}   |   {self.format_time(datetime.datetime.now() - self.start_time)}   |   Epsilon : {self.get_current_epsilon()*100: 4.2f}%   |   Mean Loss (last 10k) : {np.mean(self.losses[-10_000:]):0.4E}   |   Tot. Rewards : {np.sum(self.episode_rewards[i_env]): 8.2f}   |   Rewards (/1000 steps) : {1000 * np.sum(self.episode_rewards[i_env]) / self.episode_steps[i_env]: 8.2f}   |   Length : {self.episode_steps[i_env]: 6.0f}"
         print(text_print)
     
     def get_current_epsilon(self, delta_episode = 0, delta_steps = 0):
