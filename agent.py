@@ -150,7 +150,7 @@ class Rainbow:
         if self.steps % self.train_every == 0:
             batch_indexes, states, actions, rewards, states_prime, dones, importance_weights = self.replay_memory.sample(
                 self.batch_size,
-                self.prioritized_replay_beta_function(self.episode_count, self.steps)
+                self.prioritized_replay_beta_function(sum(self.episode_count), self.steps)
             )
 
             loss_value, td_errors = self.train_step(states, actions, rewards, states_prime, dones, importance_weights)
@@ -169,7 +169,7 @@ class Rainbow:
     
     def get_current_epsilon(self, delta_episode = 0, delta_steps = 0):
         # if self.noisy: return 0
-        return self.epsilon_function(self.episode_count + delta_episode, self.steps + delta_steps)
+        return self.epsilon_function(sum(self.episode_count) + delta_episode, self.steps + delta_steps)
 
     def e_greedy_pick_action_or_random(self, state):
         epsilon = self.get_current_epsilon()
