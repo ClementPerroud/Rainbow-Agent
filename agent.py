@@ -126,7 +126,7 @@ class Rainbow:
                 )
             
         # Store history
-        self.episode_rewards.append(reward)
+        self.episode_rewards[i_env].append(reward)
 
         if done or truncated:
             self.log(i_env)
@@ -140,7 +140,7 @@ class Rainbow:
     
     def train(self):
         self.steps += 1
-        self.episode_steps += 1
+        for i_env in range(self.simultaneous_training_env): self.episode_steps[i_env] += 1
         if self.replay_memory.size() < self.batch_size or self.get_current_epsilon() >= 1:
             return
         
