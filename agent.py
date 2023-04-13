@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import datetime
-from .utils.memories import ReplayMemory, RNNReplayMemory, MultiStepsBuffer, RNNBuffer
+from .utils.memories import ReplayMemory, RNNReplayMemory, MultiStepsBuffer
 from .utils.models import ModelBuilder
 
 class Rainbow:
@@ -46,10 +46,6 @@ class Rainbow:
 
         self.recurrent = window > 1
         self.window = window
-        if self.recurrent:
-            self.rnn_buffer_state_store_replay = RNNBuffer(windows=window, nb_states=nb_states)
-            self.rnn_buffer_next_state_store_replay = RNNBuffer(windows=window, nb_states=nb_states)
-            self.rnn_buffer_state_e_greedy_pick_action = RNNBuffer(windows=window, nb_states=nb_states)
 
         self.nb_atoms = nb_atoms
         self.v_min = v_min
@@ -109,15 +105,8 @@ class Rainbow:
         self.episode_losses = []
         self.episode_rewards = []
         
-        if self.recurrent:
-            self.rnn_buffer_state_store_replay.reset()
-            self.rnn_buffer_next_state_store_replay.reset()
-            self.rnn_buffer_state_e_greedy_pick_action.reset()
     
     def store_replay(self, state, action, reward, next_state, done, truncated):
-        if self.recurrent: 
-            state = self.rnn_buffer_state_store_replay.append(state).get()
-            next_state = self.rnn_buffer_next_state_store_replay.append(next_state).get()
         # Case where no multi-steps:
         if self.multi_steps == 1:
             self.replay_memory.store(
@@ -136,6 +125,9 @@ class Rainbow:
         if done or truncated:
             self.log()
             self.new_episode()
+    def store_replays(self, states, actions, rewards, next_states, dones, truncateds):
+        for i in range(len(actions)):
+            self.store_replay
 
     
     def train(self):
@@ -172,8 +164,6 @@ class Rainbow:
         return self.epsilon_function(self.episode_count + delta_episode, self.steps + delta_steps)
 
     def e_greedy_pick_action_or_random(self, state):
-        if self.recurrent: 
-            state = self.rnn_buffer_state_e_greedy_pick_action.append(state).get()
         epsilon = self.get_current_epsilon()
         if np.random.rand() < epsilon:
             return np.random.choice(self.nb_actions)
@@ -213,8 +203,9 @@ class Rainbow:
                 indices = tf.cast(actions[:, tf.newaxis], dtype= tf.int32),
                 batch_dims=1)
             td_errors = tf.math.abs(q_a_target - q_a_prediction)
-            td_errors_weighted = td_errors*tf.cast(weights, tf.float32)
-            loss_value = tf.math.reduce_mean(tf.square(td_errors_weighted))
+            loss_value = tf.math.reduce_mean(
+                tf.square(td_errors)*tf.cast(weights, tf.float32)
+            )
         self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
         return loss_value, td_errors
 

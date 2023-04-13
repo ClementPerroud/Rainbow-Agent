@@ -60,7 +60,7 @@ class ReplayMemory():
             weights
 
     def update_priority(self, batch, td_errors):
-        if self.prioritized: self.priorities[batch] = (np.abs(td_errors)+ 1E-1)**self.alpha
+        if self.prioritized: self.priorities[batch] = (np.abs(td_errors)+ 1)**self.alpha
 
 
 class RNNReplayMemory(ReplayMemory):
@@ -70,19 +70,19 @@ class RNNReplayMemory(ReplayMemory):
         self.states_memory = np.zeros(shape=(self.capacity, self.window,self.nb_states), dtype = np.float32)
         self.states_prime_memory = np.zeros(shape=(self.capacity,self.window, self.nb_states), dtype= np.float32)
 
-class RNNBuffer:
-    def __init__(self, windows, nb_states):
-        self.windows = windows
-        self.nb_states = nb_states
-        self.reset()
-    def reset(self):
-        self.inputs = np.zeros(shape = (self.windows, self.nb_states))
-    def append(self, obs):
-        self.inputs[:-1] = self.inputs[1:]
-        self.inputs[-1] = obs
-        return self
-    def get(self):
-        return self.inputs
+# class RNNBuffer:
+#     def __init__(self, windows, nb_states):
+#         self.windows = windows
+#         self.nb_states = nb_states
+#         self.reset()
+#     def reset(self):
+#         self.inputs = np.zeros(shape = (self.windows, self.nb_states))
+#     def append(self, obs):
+#         self.inputs[:-1] = self.inputs[1:]
+#         self.inputs[-1] = obs
+#         return self
+#     def get(self):
+#         return self.inputs
 
 class MultiStepsBuffer:
     def __init__(self, multi_steps, gamma):
