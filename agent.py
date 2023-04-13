@@ -163,9 +163,6 @@ class Rainbow:
         #     tf.summary.scalar('Step Training Loss', loss_value, step = self.total_stats['training_steps'])
 
     def log(self, i_env = 0):
-        print(self.episode_count)
-        print(self.episode_rewards)
-        print(self.episode_steps)
         text_print =f"\
 ↳ Env {i_env} : {self.episode_count[i_env]:03} : {self.steps: 8d}   |   {self.format_time(datetime.datetime.now() - self.start_time)}   |   Epsilon : {self.get_current_epsilon()*100: 4.2f}%   |   Mean Loss (last 10k) : {np.mean(self.losses[-10_000:]):0.4E}   |   Tot. Rewards : {np.sum(self.episode_rewards[i_env]): 8.2f}   |   Rewards (/1000 steps) : {1000 * np.sum(self.episode_rewards[i_env]) / self.episode_steps[i_env]: 8.2f}   |   Length : {self.episode_steps[i_env]: 6.0f}"
         print(text_print)
