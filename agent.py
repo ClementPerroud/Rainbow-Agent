@@ -174,6 +174,12 @@ class Rainbow:
             return np.random.choice(self.nb_actions)
         return int(self.pick_action(state).numpy())
 
+    def e_greedy_pick_actions_or_random(self, states):
+        epsilon = self.get_current_epsilon()
+        if np.random.rand() < epsilon:
+            return np.random.choice(self.nb_actions)
+        return int(self.pick_actions(states).numpy())
+
     def format_time(self, t :datetime.timedelta):
         h = t.total_seconds() // (60*60)
         m  = (t.total_seconds() % (60*60)) // 60
