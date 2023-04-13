@@ -129,8 +129,10 @@ class Rainbow:
             self.log()
             self.new_episode()
     def store_replays(self, states, actions, rewards, next_states, dones, truncateds):
-        for i in range(len(actions)):
-            self.store_replay
+        for i_env in range(len(actions)):
+            self.store_replay(
+                states[i_env], actions[i_env], rewards[i_env], next_states[i_env], dones[i_env], truncateds[i_env], i_env = 0
+            )
 
     
     def train(self):
