@@ -96,7 +96,7 @@ class Rainbow:
         self.losses = []
         self.episode_rewards = [[] for _ in range(self.simultaneous_training_env)]
         self.episode_count = [0 for _ in range(self.simultaneous_training_env)]
-        self.episode_steps = [[] for _ in range(self.simultaneous_training_env)]
+        self.episode_steps = [0 for _ in range(self.simultaneous_training_env)]
 
         #INITIALIZE CORE FUNCTIONS
         # Distributional training
