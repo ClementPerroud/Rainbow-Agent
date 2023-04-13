@@ -27,6 +27,8 @@ class Rainbow:
             distributional = False, nb_atoms = 51, v_min= -200, v_max= 200,
             # Prioritized replay
             prioritized_replay = False, prioritized_replay_alpha =0.65, prioritized_replay_beta_function = lambda episode, step : min(1, 0.4 + 0.6*step/50_000),
+            # Vectorized envs
+            simultaneous_training_env = 1,
             train_every = 1,
             name = "Rainbow",
         ):
@@ -43,6 +45,7 @@ class Rainbow:
         self.prioritized_replay_beta_function = prioritized_replay_beta_function
         self.train_every = train_every
         self.multi_steps = multi_steps
+        self.simultaneous_training_env = simultaneous_training_env
 
         self.recurrent = window > 1
         self.window = window
@@ -55,8 +58,8 @@ class Rainbow:
 
         # Memory
         self.replay_memory = ReplayMemory(capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
-        if self.recurrent : self.replay_memory = RNNReplayMemory(window= window, capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
-        if self.multi_steps > 1: self.multi_steps_buffer = MultiStepsBuffer(self.multi_steps, self.gamma)
+        if self.recurrent: self.replay_memory = RNNReplayMemory(window= window, capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
+        if self.multi_steps > 1: self.multi_steps_buffers = [MultiStepsBuffer(self.multi_steps, self.gamma) for _ in range(simultaneous_training_env)]
 
         # Models
         model_builder = ModelBuilder(
@@ -106,17 +109,17 @@ class Rainbow:
         self.episode_rewards = []
         
     
-    def store_replay(self, state, action, reward, next_state, done, truncated):
+    def store_replay(self, state, action, reward, next_state, done, truncated, i_env = 0):
         # Case where no multi-steps:
         if self.multi_steps == 1:
             self.replay_memory.store(
                 state, action, reward, next_state, done
             )
         else:
-            self.multi_steps_buffer.add(state, action, reward, next_state, done)
-            if self.multi_steps_buffer.is_full():
+            self.multi_steps_buffers[i_env].add(state, action, reward, next_state, done)
+            if self.multi_steps_buffers[i_env].is_full():
                 self.replay_memory.store(
-                    *self.multi_steps_buffer.get_multi_step_replay()
+                    *self.multi_steps_buffers[i_env].get_multi_step_replay()
                 )
             
         # Store history
