@@ -1,2 +1,7 @@
 # Rainbow-RL-Agent
-Replicate of Reinforcement Learning Rainbow with Tensorflow 2 from paper "Rainbow: Combining Improvements in Deep Reinforcement Learning"
+My version of Reinforcement Learning Rainbow Agent with Tensorflow 2 from paper "Rainbow: Combining Improvements in Deep Reinforcement Learning".
+
+## How to use ?
+
+
+
