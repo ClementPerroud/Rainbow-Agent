@@ -1,6 +1,14 @@
 # Rainbow-RL-Agent
 Ultimate version of Reinforcement Learning **Rainbow Agent** (aka. DQN with several improvments) with Tensorflow 2 from paper "Rainbow: Combining Improvements in Deep Reinforcement Learning".
-It can handle Recurrent Neural Nets and Multi Parallelized Environments.
+My version can handle Recurrent Neural Nets and Multi Parallelized Environments.
+
+It is an upgraded version of DQN agent with :
+- **DoubleQ-learning** : Adding a Target Network that is used in the loss function and upgrade once every `tau` steps. See paper [Deep Reinforcement Learning with Double Q-learning](https://arxiv.org/abs/1509.06461)
+- **Distributional RL** : Approximating the probability distributions of the Q-values instead of the Q-values themself. See paper : [A Distributional Perspective on Reinforcement Learning](https://arxiv.org/abs/1707.06887)
+- **Prioritizedreplay** : Sampling method that prioritize experiences with big *Temporal Difference(TD) errors* (~loss) at the beginning of a training. See paper : [Prioritized Experience Replay](https://arxiv.org/abs/1511.05952)
+- **Dueling Networks**: Divide neural net stream into two branches, an action stream and a value stream. Both of them combined formed the Q-action values. See paper : [Dueling Network Architectures for Deep Reinforcement Learning](https://arxiv.org/abs/1509.06461)
+- **Multi-step learning** : Making Temporal Difference bigger than classic DQN (where TD = 1). See paper [Multi-step Reinforcement Learning: A Unifying Algorithm](https://arxiv.org/abs/1703.01327)
+- **NoisyNets** : Replace classic epsilon-greedy exploration/exploitation with noise in the Neural Net. [Noisy Networks for Exploration](https://arxiv.org/abs/1706.10295)
 
 ## How to use ?
 
@@ -52,14 +60,4 @@ agent = Rainbow(
     name = "Rainbow",
 )
 ```
-
-# Agent description
-
-It is an upgraded version of DQN agent with :
-- **DoubleQ-learning** : Adding a Target Network that is used in the loss function and upgrade once every `tau` steps. See paper [Deep Reinforcement Learning with Double Q-learning](https://arxiv.org/abs/1509.06461)
-- **Distributional RL** : Approximating the probability distributions of the Q-values instead of the Q-values themself. See paper : [A Distributional Perspective on Reinforcement Learning](https://arxiv.org/abs/1707.06887)
-- **Prioritizedreplay** : Sampling method that prioritize experiences with big *Temporal Difference(TD) errors* (~loss) at the beginning of a training. See paper : [Prioritized Experience Replay](https://arxiv.org/abs/1511.05952)
-- **Dueling Networks**: Divide neural net stream into two branches, an action stream and a value stream. Both of them combined formed the Q-action values. See paper : [Dueling Network Architectures for Deep Reinforcement Learning](https://arxiv.org/abs/1509.06461)
-- **Multi-step learning** : Making Temporal Difference bigger than classic DQN (where TD = 1). See paper [Multi-step Reinforcement Learning: A Unifying Algorithm](https://arxiv.org/abs/1703.01327)
-- **NoisyNets** : Replace classic epsilon-greedy exploration/exploitation with noise in the Neural Net. [Noisy Networks for Exploration](https://arxiv.org/abs/1706.10295)
 
