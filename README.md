@@ -1,8 +1,8 @@
 # Rainbow-RL-Agent
-Ultimate version of Reinforcement Learning **Rainbow Agent** (aka. DQN with several improvments) with Tensorflow 2 from paper "Rainbow: Combining Improvements in Deep Reinforcement Learning".
+Ultimate version of Reinforcement Learning **Rainbow Agent** with Tensorflow 2 from paper "Rainbow: Combining Improvements in Deep Reinforcement Learning".
 My version can handle Recurrent Neural Nets and Multi Parallelized Environments.
 
-It is an upgraded version of DQN agent with :
+The Rainbow Agent is a DQN agent with strong improvments :
 - **DoubleQ-learning** : Adding a Target Network that is used in the loss function and upgrade once every `tau` steps. See paper [Deep Reinforcement Learning with Double Q-learning](https://arxiv.org/abs/1509.06461)
 - **Distributional RL** : Approximating the probability distributions of the Q-values instead of the Q-values themself. See paper : [A Distributional Perspective on Reinforcement Learning](https://arxiv.org/abs/1707.06887)
 - **Prioritizedreplay** : Sampling method that prioritize experiences with big *Temporal Difference(TD) errors* (~loss) at the beginning of a training. See paper : [Prioritized Experience Replay](https://arxiv.org/abs/1511.05952)
