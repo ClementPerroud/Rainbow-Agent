@@ -3,16 +3,19 @@ import numpy as np
 import datetime
 from .utils.memories import ReplayMemory, RNNReplayMemory, MultiStepsBuffer
 from .utils.models import ModelBuilder
+import os
+import dill
 
 class Rainbow:
     def __init__(self,
             nb_states, 
             nb_actions, 
             gamma, 
-            epsilon_function,
+            
             replay_capacity, 
             learning_rate, 
             batch_size,
+            epsilon_function = lambda episode, step : max(0.001, (1 - 5E-5)** step), 
             # Model buildes
             window = 1, # 1 = Classic , 1> = RNN
             units = [32, 32],
@@ -171,13 +174,13 @@ class Rainbow:
         # if self.noisy: return 0
         return self.epsilon_function(sum(self.episode_count) + delta_episode, self.steps + delta_steps)
 
-    def e_greedy_pick_action_or_random(self, state):
+    def e_greedy_pick_action(self, state):
         epsilon = self.get_current_epsilon()
         if np.random.rand() < epsilon:
             return np.random.choice(self.nb_actions)
         return int(self.pick_action(state).numpy())
 
-    def e_greedy_pick_actions_or_random(self, states):
+    def e_greedy_pick_actions(self, states):
         epsilon = self.get_current_epsilon()
         if np.random.rand() < epsilon:
             return np.random.choice(self.nb_actions, size = self.simultaneous_training_env)
@@ -194,8 +197,8 @@ class Rainbow:
         if self.distributional: return self._distributional_train_step(*args, **kwargs)
         return self._classic_train_step(*args, **kwargs)
     def pick_action(self, *args, **kwargs):
-        if self.distributional: return self._distributional_pick_action(*args, **kwargs)
-        return self._classic_pick_action(*args, **kwargs)
+        if self.distributional: return int(self._distributional_pick_action(*args, **kwargs))
+        return int(self._classic_pick_action(*args, **kwargs))
     def pick_actions(self, *args, **kwargs):
         if self.distributional: return self._distributional_pick_actions(*args, **kwargs)
         return self._classic_pick_actions(*args, **kwargs)
@@ -289,3 +292,28 @@ class Rainbow:
         self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
         return loss_value, td_errors
 
+    def save(self, path):
+        self.saved_path = path
+        if not os.path.exists(path): os.makedirs(path)
+
+        if self.model is not None: self.model.save(f"{path}/model.h5")
+        if self.target_model is not None: self.target_model.save(f"{path}/target_model.h5")
+        
+        with open(f'{path}/agent.pkl', 'wb') as file:
+            dill.dump(self, file)
+
+    def __getstate__(self):
+        print("Saving agent ...")
+        return_dict = self.__dict__.copy()
+        return_dict.pop('model', None)
+        return_dict.pop('target_model', None)
+        return_dict.pop('replay_memory', None)
+        return return_dict
+    
+def load_agent(path):
+    with open(f'{path}/agent.pkl', 'rb') as file:
+        unpickler = dill.Unpickler(file)
+        agent = unpickler.load()
+    agent.model = tf.keras.models.load_model(f'{path}/model.h5', compile=False)
+    agent.target_model = tf.keras.models.load_model(f'{path}/target_model.h5', compile=False)
+    return agent
