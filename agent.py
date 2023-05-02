@@ -329,3 +329,4 @@ def load_agent(path):
         if name != "agent":
             with open(element_path, 'rb') as file:
                 other_elements[name] = dill.load(file)
+    return agent, other_elements
