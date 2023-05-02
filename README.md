@@ -17,7 +17,7 @@ Import the rainbow agent
 ```python
 git clone https://github.com/ClementPerroud/Rainbow-Agent rainbow
 ```
-###Import
+### Import
 ```python
 from rainbow.agent import Rainbow
 ```
