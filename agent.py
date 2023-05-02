@@ -2,9 +2,10 @@ import tensorflow as tf
 import numpy as np
 import datetime
 from .utils.memories import ReplayMemory, RNNReplayMemory, MultiStepsBuffer
-from .utils.models import ModelBuilder
+from .utils.models import ModelBuilder, AdversarialModelAgregator
 import os
 import dill
+import glob
 
 class Rainbow:
     def __init__(self,
@@ -292,7 +293,7 @@ class Rainbow:
         self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
         return loss_value, td_errors
 
-    def save(self, path):
+    def save(self, path, **kwargs):
         self.saved_path = path
         if not os.path.exists(path): os.makedirs(path)
 
@@ -301,6 +302,9 @@ class Rainbow:
         
         with open(f'{path}/agent.pkl', 'wb') as file:
             dill.dump(self, file)
+        for key, element in kwargs.items():
+            with open(f'{path}/{key}.pkl', 'wb') as file:
+                dill.dump(element, file)
 
     def __getstate__(self):
         print("Saving agent ...")
@@ -309,11 +313,19 @@ class Rainbow:
         return_dict.pop('target_model', None)
         return_dict.pop('replay_memory', None)
         return return_dict
-    
+
+
 def load_agent(path):
     with open(f'{path}/agent.pkl', 'rb') as file:
         unpickler = dill.Unpickler(file)
         agent = unpickler.load()
-    agent.model = tf.keras.models.load_model(f'{path}/model.h5', compile=False)
-    agent.target_model = tf.keras.models.load_model(f'{path}/target_model.h5', compile=False)
-    return agent
+    agent.model = tf.keras.models.load_model(f'{path}/model.h5', compile=False, custom_objects = {"AdversarialModelAgregator" : AdversarialModelAgregator})
+    agent.target_model = tf.keras.models.load_model(f'{path}/target_model.h5', compile=False, custom_objects = {"AdversarialModelAgregator" : AdversarialModelAgregator})
+
+    other_elements = {}
+    other_pathes = glob.glob(f'{path}/*pkl')
+    for element_path in other_pathes:
+        name = os.path.split(element_path)[-1].replace(".pkl", "")
+        if name != "agent":
+            with open(element_path, 'rb') as file:
+                other_elements[name] = dill.load(file)
