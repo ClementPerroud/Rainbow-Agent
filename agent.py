@@ -6,6 +6,7 @@ from .utils.models import ModelBuilder, AdversarialModelAgregator
 import os
 import dill
 import glob
+import json
 
 class Rainbow:
     def __init__(self,
@@ -303,8 +304,12 @@ class Rainbow:
         with open(f'{path}/agent.pkl', 'wb') as file:
             dill.dump(self, file)
         for key, element in kwargs.items():
-            with open(f'{path}/{key}.pkl', 'wb') as file:
-                dill.dump(element, file)
+            if isinstance(element, dict):
+                with open(f'{path}/{key}.json', 'w') as file:
+                    dill.dump(element, file)
+            else:
+                with open(f'{path}/{key}.pkl', 'wb') as file:
+                    dill.dump(element, file)
 
     def __getstate__(self):
         print("Saving agent ...")
@@ -324,9 +329,12 @@ def load_agent(path):
 
     other_elements = {}
     other_pathes = glob.glob(f'{path}/*pkl')
+    other_pathes.extend(glob.glob(f'{path}/*json'))
     for element_path in other_pathes:
-        name = os.path.split(element_path)[-1].replace(".pkl", "")
+        name = os.path.split(element_path)[-1].replace(".pkl", "").replace(".json", "")
         if name != "agent":
             with open(element_path, 'rb') as file:
-                other_elements[name] = dill.load(file)
+                if ".pkl" in element_path:other_elements[name] = dill.load(file)
+                elif ".json" in element_path:other_elements[name] = json.load(file)
+            
     return agent, other_elements
