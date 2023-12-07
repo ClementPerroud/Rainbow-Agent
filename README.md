@@ -17,6 +17,13 @@ Import the rainbow agent
 ```python
 git clone https://github.com/ClementPerroud/Rainbow-Agent rainbow
 ```
+
+Install dependancies
+
+```python
+pip install -r requirements.txt
+```
+
 ### Import
 ```python
 from rainbow.agent import Rainbow
