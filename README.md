@@ -21,7 +21,7 @@ git clone https://github.com/ClementPerroud/Rainbow-Agent rainbow
 Install dependancies
 
 ```python
-pip install -r requirements.txt
+pip install -r rainbow/requirements.txt
 ```
 
 ### Import
