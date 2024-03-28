@@ -180,7 +180,7 @@ class Rainbow:
         epsilon = self.get_current_epsilon()
         if np.random.rand() < epsilon:
             return np.random.choice(self.nb_actions)
-        return int(self.pick_action(state).numpy())
+        return self.pick_action(state)
 
     def e_greedy_pick_actions(self, states):
         epsilon = self.get_current_epsilon()
