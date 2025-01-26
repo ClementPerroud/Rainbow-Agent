@@ -38,17 +38,19 @@ class SumTree:
         while len(self.new_leafs) > 0 and len(batch) < batch_size:
             batch.append(self.new_leafs.pop(0))
         batch_size -= len(batch)
-        random_cumsums = np.random.rand(batch_size)*self.sum()
+        random_cumsums = np.random.rand(batch_size)*(self.sum() - 1e-5)
         for i in range(batch_size):
             cumsum = random_cumsums[i]
 
             idx = 0
             for i_layer in range(self.layer_len-1, 0, -1):
                 left_child_index, right_child_index = idx*2, idx*2+1
+                self.node_layers[i_layer-1][left_child_index]
                 if cumsum < self.node_layers[i_layer-1][left_child_index]:
                     idx = left_child_index
                 else:
                     idx = right_child_index
                     cumsum -= self.node_layers[i_layer-1][left_child_index]
+
             batch.append(idx)
         return batch
