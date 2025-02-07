@@ -8,6 +8,9 @@ import dill
 import glob
 import json
 
+
+
+
 class Rainbow:
     def __init__(self,
             nb_states, 
@@ -33,7 +36,7 @@ class Rainbow:
             # Prioritized replay
             prioritized_replay = False, prioritized_replay_alpha =0.65, prioritized_replay_beta_function = lambda episode, step : min(1, 0.4 + 0.6*step/50_000),
             # Vectorized envs
-            simultaneous_training_env = 1,
+
             train_every = 1,
             name = "Rainbow",
         ):
@@ -50,7 +53,7 @@ class Rainbow:
         self.prioritized_replay_beta_function = prioritized_replay_beta_function
         self.train_every = train_every
         self.multi_steps = multi_steps
-        self.simultaneous_training_env = simultaneous_training_env
+
 
         self.recurrent = window > 1
         self.window = window
@@ -64,7 +67,7 @@ class Rainbow:
         # Memory
         self.replay_memory = ReplayMemory(capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
         if self.recurrent: self.replay_memory = RNNReplayMemory(window= window, capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
-        if self.multi_steps > 1: self.multi_steps_buffers = [MultiStepsBuffer(self.multi_steps, self.gamma) for _ in range(simultaneous_training_env)]
+        self.multi_steps_buffer = MultiStepsBuffer(self.multi_steps, self.gamma)
 
         # Models
         model_builder = ModelBuilder(
@@ -98,56 +101,37 @@ class Rainbow:
         self.steps = 0
         self.episode_count = -1
 
-        self.losses = []
-        self.episode_rewards = [[] for _ in range(self.simultaneous_training_env)]
-        self.episode_count = [0 for _ in range(self.simultaneous_training_env)]
-        self.episode_steps = [0 for _ in range(self.simultaneous_training_env)]
-
         #INITIALIZE CORE FUNCTIONS
         # Distributional training
         if self.distributional:
             self.delta_z = (v_max - v_min)/(nb_atoms - 1)
             self.zs = tf.constant([v_min + i*self.delta_z for i in range(nb_atoms)], dtype= tf.float32)
 
-        self.start_time = datetime.datetime.now()
+
         
-    def new_episode(self, i_env):
-        self.episode_count[i_env] += 1
-        self.episode_steps[i_env] = 0
-        self.episode_rewards[i_env] = []
+
         
     
-    def store_replay(self, state, action, reward, next_state, done, truncated, i_env = 0):
+    def store_replay(self, state, action, reward, next_state, done, truncated):
         # Case where no multi-steps:
         if self.multi_steps == 1:
             self.replay_memory.store(
                 state, action, reward, next_state, done
             )
         else:
-            self.multi_steps_buffers[i_env].add(state, action, reward, next_state, done)
-            if self.multi_steps_buffers[i_env].is_full():
+            self.multi_steps_buffer.add(state, action, reward, next_state, done)
+            if self.multi_steps_buffer.is_full():
                 self.replay_memory.store(
-                    *self.multi_steps_buffers[i_env].get_multi_step_replay()
+                    *self.multi_steps_buffer.get_multi_step_replay()
                 )
-            
-        # Store history
-        self.episode_rewards[i_env].append(reward)
 
-        if done or truncated:
-            self.log(i_env)
-            self.new_episode(i_env)
-    def store_replays(self, states, actions, rewards, next_states, dones, truncateds):
-        for i_env in range(len(actions)):
-            self.store_replay(
-                states[i_env], actions[i_env], rewards[i_env], next_states[i_env], dones[i_env], truncateds[i_env], i_env = i_env
-            )
+
 
     
     def train(self):
         self.steps += 1
-        for i_env in range(self.simultaneous_training_env): self.episode_steps[i_env] += 1
         if self.replay_memory.size() < self.batch_size or self.get_current_epsilon() >= 1:
-            return
+            return None
         
         if self.steps % self.tau == 0:
             self.target_model.set_weights(self.model.get_weights())
@@ -155,38 +139,30 @@ class Rainbow:
         if self.steps % self.train_every == 0:
             batch_indexes, states, actions, rewards, states_prime, dones, importance_weights = self.replay_memory.sample(
                 self.batch_size,
-                self.prioritized_replay_beta_function(sum(self.episode_count), self.steps)
+                self.prioritized_replay_beta_function(self.episode_count, self.steps)
             )
 
             loss_value, td_errors = self.train_step(states, actions, rewards, states_prime, dones, importance_weights)
             self.replay_memory.update_priority(batch_indexes, td_errors)
 
-            self.losses.append(float(loss_value))
+            return float(loss_value)
 
+        return None
         # Tensorboard
         # with self.train_summary_writer.as_default():
         #     tf.summary.scalar('Step Training Loss', loss_value, step = self.total_stats['training_steps'])
 
-    def log(self, i_env = 0):
-        text_print =f"\
-↳ Env {i_env} : {self.episode_count[i_env]:03} : {self.steps: 8d}   |   {self.format_time(datetime.datetime.now() - self.start_time)}   |   Epsilon : {self.get_current_epsilon()*100: 4.2f}%   |   Mean Loss (last 10k) : {np.mean(self.losses[-10_000:]):0.4E}   |   Tot. Rewards : {np.sum(self.episode_rewards[i_env]): 8.2f}   |   Rewards (/1000 steps) : {1000 * np.sum(self.episode_rewards[i_env]) / self.episode_steps[i_env]: 8.2f}   |   Length : {self.episode_steps[i_env]: 6.0f}"
-        print(text_print)
     
     def get_current_epsilon(self, delta_episode = 0, delta_steps = 0):
         # if self.noisy: return 0
-        return self.epsilon_function(sum(self.episode_count) + delta_episode, self.steps + delta_steps)
+        return self.epsilon_function(self.episode_count + delta_episode, self.steps + delta_steps)
 
     def e_greedy_pick_action(self, state):
         epsilon = self.get_current_epsilon()
         if np.random.rand() < epsilon:
             return np.random.choice(self.nb_actions)
         return self.pick_action(state)
-
-    def e_greedy_pick_actions(self, states):
-        epsilon = self.get_current_epsilon()
-        if np.random.rand() < epsilon:
-            return np.random.choice(self.nb_actions, size = self.simultaneous_training_env)
-        return self.pick_actions(states).numpy()
+    
 
     def format_time(self, t :datetime.timedelta):
         h = t.total_seconds() // (60*60)
@@ -198,9 +174,11 @@ class Rainbow:
     def train_step(self, *args, **kwargs):
         if self.distributional: return self._distributional_train_step(*args, **kwargs)
         return self._classic_train_step(*args, **kwargs)
+    
     def pick_action(self, *args, **kwargs):
         if self.distributional: return int(self._distributional_pick_action(*args, **kwargs))
         return int(self._classic_pick_action(*args, **kwargs))
+    
     def pick_actions(self, *args, **kwargs):
         if self.distributional: return self._distributional_pick_actions(*args, **kwargs)
         return self._classic_pick_actions(*args, **kwargs)
@@ -294,23 +272,6 @@ class Rainbow:
         self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
         return loss_value, td_errors
 
-    def save(self, path, **kwargs):
-        self.saved_path = path
-        if not os.path.exists(path): os.makedirs(path)
-
-        if self.model is not None: self.model.save(f"{path}/model.h5")
-        if self.target_model is not None: self.target_model.save(f"{path}/target_model.h5")
-        
-        with open(f'{path}/agent.pkl', 'wb') as file:
-            dill.dump(self, file)
-        for key, element in kwargs.items():
-            if isinstance(element, dict):
-                with open(f'{path}/{key}.json', 'w') as file:
-                    dill.dump(element, file)
-            else:
-                with open(f'{path}/{key}.pkl', 'wb') as file:
-                    dill.dump(element, file)
-
     def __getstate__(self):
         print("Saving agent ...")
         return_dict = self.__dict__.copy()
@@ -320,21 +281,3 @@ class Rainbow:
         return return_dict
 
 
-def load_agent(path):
-    with open(f'{path}/agent.pkl', 'rb') as file:
-        unpickler = dill.Unpickler(file)
-        agent = unpickler.load()
-    agent.model = tf.keras.models.load_model(f'{path}/model.h5', compile=False, custom_objects = {"AdversarialModelAgregator" : AdversarialModelAgregator})
-    agent.target_model = tf.keras.models.load_model(f'{path}/target_model.h5', compile=False, custom_objects = {"AdversarialModelAgregator" : AdversarialModelAgregator})
-
-    other_elements = {}
-    other_pathes = glob.glob(f'{path}/*pkl')
-    other_pathes.extend(glob.glob(f'{path}/*json'))
-    for element_path in other_pathes:
-        name = os.path.split(element_path)[-1].replace(".pkl", "").replace(".json", "")
-        if name != "agent":
-            with open(element_path, 'rb') as file:
-                if ".pkl" in element_path:other_elements[name] = dill.load(file)
-                elif ".json" in element_path:other_elements[name] = json.load(file)
-            
-    return agent, other_elements
