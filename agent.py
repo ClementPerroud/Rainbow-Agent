@@ -13,20 +13,18 @@ import json
 
 class Rainbow:
     def __init__(self,
+            model,
+            target_model,
+            replay_memory,
             nb_states, 
             nb_actions, 
             gamma, 
             
             replay_capacity, 
-            learning_rate, 
             batch_size,
             epsilon_function = lambda episode, step : max(0.001, (1 - 5E-5)** step), 
             # Model buildes
             window = 1, # 1 = Classic , 1> = RNN
-            units = [32, 32],
-            dropout = 0,
-            adversarial = False,
-            noisy = False,
             # Double DQN
             tau = 500, 
             # Multi Steps replay
@@ -34,7 +32,6 @@ class Rainbow:
             # Distributional
             distributional = False, nb_atoms = 51, v_min= -200, v_max= 200,
             # Prioritized replay
-            prioritized_replay = False, prioritized_replay_alpha =0.65, prioritized_replay_beta_function = lambda episode, step : min(1, 0.4 + 0.6*step/50_000),
             # Vectorized envs
 
             train_every = 1,
@@ -44,13 +41,11 @@ class Rainbow:
         self.nb_states = nb_states
         self.nb_actions = nb_actions
         self.gamma =  tf.cast(gamma, dtype= tf.float32)
-        self.epsilon_function = epsilon_function if not noisy else lambda episode, step : 0
+        self.epsilon_function = epsilon_function
         self.replay_capacity = replay_capacity
-        self.learning_rate = learning_rate
+        self.replay_memory = replay_memory 
         self.tau = tau
         self.batch_size = batch_size
-        self.prioritized_replay_alpha = prioritized_replay_alpha
-        self.prioritized_replay_beta_function = prioritized_replay_beta_function
         self.train_every = train_every
         self.multi_steps = multi_steps
 
@@ -65,32 +60,13 @@ class Rainbow:
         self.distributional = distributional
 
         # Memory
-        self.replay_memory = ReplayMemory(capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
-        if self.recurrent: self.replay_memory = RNNReplayMemory(window= window, capacity= replay_capacity, nb_states= nb_states, prioritized = prioritized_replay, alpha= prioritized_replay_alpha)
         self.multi_steps_buffer = MultiStepsBuffer(self.multi_steps, self.gamma)
 
         # Models
-        model_builder = ModelBuilder(
-            units = units,
-            dropout= dropout,
-            nb_states= nb_states,
-            nb_actions= nb_actions,
-            l2_reg= None,
-            window= window,
-            distributional= distributional, nb_atoms= nb_atoms,
-            adversarial= adversarial,
-            noisy = noisy
-        )
-        input_shape = (None, nb_states)
-        self.model = model_builder.build_model(trainable= True)
-        self.model.build(input_shape)
-        self.model.compile(
-            optimizer= tf.keras.optimizers.legacy.Adam(self.learning_rate, epsilon= 1.5E-4)
-        )
+        self.model = model
+        self.target_model = target_model
+        target_model.set_weights(self.model.get_weights())
 
-        self.target_model = model_builder.build_model(trainable= False)
-        self.target_model.build(input_shape)
-        self.target_model.set_weights(self.model.get_weights())
 
 
         # Initialize Tensorboard
@@ -107,10 +83,6 @@ class Rainbow:
             self.delta_z = (v_max - v_min)/(nb_atoms - 1)
             self.zs = tf.constant([v_min + i*self.delta_z for i in range(nb_atoms)], dtype= tf.float32)
 
-
-        
-
-        
     
     def store_replay(self, state, action, reward, next_state, done, truncated):
         # Case where no multi-steps:
@@ -139,7 +111,8 @@ class Rainbow:
         if self.steps % self.train_every == 0:
             batch_indexes, states, actions, rewards, states_prime, dones, importance_weights = self.replay_memory.sample(
                 self.batch_size,
-                self.prioritized_replay_beta_function(self.episode_count, self.steps)
+                self.episode_count, 
+                self.steps
             )
 
             loss_value, td_errors = self.train_step(states, actions, rewards, states_prime, dones, importance_weights)

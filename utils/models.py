@@ -16,7 +16,7 @@ class AdversarialModelAgregator(tf.keras.Model):
 
 
 class ModelBuilder():
-    def __init__(self, units, dropout, nb_states, nb_actions, l2_reg, window, distributional, nb_atoms, adversarial, noisy):
+    def __init__(self, units, dropout, nb_states, nb_actions, l2_reg, window, distributional, nb_atoms, adversarial, noisy, learning_rate):
         self.units = units
         self.dropout = dropout
         self.nb_states = nb_states
@@ -28,6 +28,7 @@ class ModelBuilder():
         self.nb_atoms = nb_atoms
         self.adversarial = adversarial
         self.noisy = noisy
+        self.learning_rate = learning_rate
 
     
     def dense(self, *args, **kwargs):
@@ -99,4 +100,11 @@ class ModelBuilder():
         
 
         model =  tf.keras.models.Model(inputs = inputs, outputs = output)
+
+        input_shape = (None, self.nb_states)
+        model.build(input_shape)
+        if trainable:
+            model.compile(
+                optimizer= tf.keras.optimizers.legacy.Adam(self.learning_rate, epsilon= 1.5E-4)
+            )
         return model

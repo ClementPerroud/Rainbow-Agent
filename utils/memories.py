@@ -3,7 +3,7 @@ import tensorflow as tf
 from .binary_heap import SumTree
 
 class ReplayMemory():
-    def __init__(self, capacity, nb_states, prioritized = True, alpha = 0.65):
+    def __init__(self, capacity, nb_states, prioritized = True, alpha = 0.65, beta_function = None):
         self.capacity = int(capacity)
         self.nb_states= int(nb_states)
         self.i = 0
@@ -18,6 +18,7 @@ class ReplayMemory():
             # self.priorities = np.full(shape=(self.capacity,), fill_value = 1E3, dtype= np.float32)
             self.priorities = SumTree(size= self.capacity)
             self.alpha = alpha
+            self.beta_function = beta_function
 
     def store(self, s, a, r, s_p, done):
         i = self.i % self.capacity
@@ -33,10 +34,11 @@ class ReplayMemory():
     def size(self):
         return min(self.i,self.capacity)
     
-    def sample(self, batch_size, beta = 0.4):
-        if beta >= 1: self.prioritized = False
+    def sample(self, batch_size, episode_count, steps):
         size = self.size()
         if self.prioritized:
+            beta = self.beta_function(episode_count, steps)
+            if beta >= 1: self.prioritized = False
             # probabilities = self.priorities[:size] /np.sum(self.priorities[:size])
             # batch = np.random.choice(size, size = batch_size,
             #     p = probabilities,
