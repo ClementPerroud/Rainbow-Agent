@@ -43,7 +43,7 @@ class AgentManager:
             self.new_episode(i_env)
 
     def train(self):
-        self.episode_steps[0] += 1
+        for i in range(self.simultaneous_training_env): self.episode_steps[i] += 1
         loss_value = self.agents[0].train()
         if loss_value is not None: self.losses.append(loss_value)
 
