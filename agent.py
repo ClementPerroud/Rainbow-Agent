@@ -98,8 +98,6 @@ class Rainbow:
                 )
 
 
-
-    
     def train(self):
         self.steps += 1
         if self.replay_memory.size() < self.batch_size or self.get_current_epsilon() >= 1:
