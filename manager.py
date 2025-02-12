@@ -49,7 +49,6 @@ class AgentManager:
         if loss_value is not None: self.losses.append(loss_value)
 
     
-
     def e_greedy_pick_action(self, state): return self.agents[0].e_greedy_pick_action(state = state)
 
     def e_greedy_pick_actions(self, states):

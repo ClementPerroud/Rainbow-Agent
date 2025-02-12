@@ -16,11 +16,8 @@ class Rainbow:
             model,
             target_model,
             replay_memory,
-            nb_states, 
             nb_actions, 
             gamma, 
-            
-            replay_capacity, 
             batch_size,
             epsilon_function = lambda episode, step : max(0.001, (1 - 5E-5)** step), 
             # Model buildes
@@ -38,11 +35,9 @@ class Rainbow:
             name = "Rainbow",
         ):
         self.name = name
-        self.nb_states = nb_states
         self.nb_actions = nb_actions
         self.gamma =  tf.cast(gamma, dtype= tf.float32)
         self.epsilon_function = epsilon_function
-        self.replay_capacity = replay_capacity
         self.replay_memory = replay_memory 
         self.tau = tau
         self.batch_size = batch_size
