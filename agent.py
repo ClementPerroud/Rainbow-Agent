@@ -15,7 +15,7 @@ class Rainbow:
     def __init__(self,
             model,
             target_model,
-            replay_memory,
+            replay_memory : ReplayMemory,
             nb_actions, 
             gamma, 
             batch_size,
@@ -79,17 +79,20 @@ class Rainbow:
             self.zs = tf.constant([v_min + i*self.delta_z for i in range(nb_atoms)], dtype= tf.float32)
 
     
-    def store_replay(self, state, action, reward, next_state, done, truncated):
+    def store_replay(self, state, action, reward, next_state, done, truncated, state_trainable, next_state_trainable):
         # Case where no multi-steps:
         if self.multi_steps == 1:
             self.replay_memory.store(
-                state, action, reward, next_state, done
+                s = state, a = action, r = reward, s_p = next_state, d = done, state_trainable = state_trainable, next_state_trainable = next_state_trainable
             )
         else:
-            self.multi_steps_buffer.add(state, action, reward, next_state, done)
+            self.multi_steps_buffer.add(
+                state = state, action = action, reward = reward, next_state = next_state, done = done, 
+                state_trainable = state_trainable, next_state_trainable = next_state_trainable
+            )
             if self.multi_steps_buffer.is_full():
                 self.replay_memory.store(
-                    *self.multi_steps_buffer.get_multi_step_replay()
+                    **self.multi_steps_buffer.get_multi_step_replay()
                 )
 
 

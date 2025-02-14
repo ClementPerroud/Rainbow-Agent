@@ -20,7 +20,9 @@ class ReplayMemory():
             self.alpha = alpha
             self.beta_function = beta_function
 
-    def store(self, s, a, r, s_p, done):
+    def store(self, s, a, r, s_p, done, s_trainable, s_p_trainable):
+        if not s_trainable and not s_p_trainable: return 
+        
         i = self.i % self.capacity
         self.states_memory[i] = s
         self.actions_memory[i] = a
@@ -98,9 +100,11 @@ class MultiStepsBuffer:
         self.rewards = np.zeros(shape=(self.multi_steps,))
         self.next_states = None
         self.dones = np.zeros(shape=(self.multi_steps,))
+        self.states_trainable = np.zeros(shape=(self.multi_steps,))
+        self.next_states_trainable = None
 
 
-    def add(self, state, action, reward,  next_state, done):
+    def add(self, state, action, reward,  next_state, done, state_trainable, next_state_trainable):
         self.states.append(state)
         self.states = self.states[1:]
 
@@ -115,7 +119,22 @@ class MultiStepsBuffer:
         self.dones[0:-1] = self.dones[1:]
         self.dones[-1] = done
 
+        self.states_trainable[0:-1] = self.states_trainable[1:]
+        self.states_trainable[-1] = state_trainable
+
+        self.next_states_trainable = next_state_trainable
+
     def is_full(self):
         return self.states[0] is not None
+    
     def get_multi_step_replay(self):
-        return self.states[0], self.actions[0], (self.rewards * self.gamma_array).sum(), self.next_states, (self.dones.sum() > 0)
+        return dict(
+            s = self.states[0], 
+            a = self.actions[0], 
+            r = (self.rewards * self.gamma_array).sum(), 
+            s_p = self.next_states, 
+            done = (self.dones.sum() > 0), 
+            s_trainable = self.states_trainable[0],
+            s_p_trainable = self.next_states_trainable
+        )
+

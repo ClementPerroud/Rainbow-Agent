@@ -28,12 +28,19 @@ class AgentManager:
         self.episode_steps[i_env] = 0
         self.episode_rewards[i_env] = []
 
-    def store_replays(self, states, actions, rewards, next_states, dones, truncateds):
+    def store_replays(self, states, actions, rewards, next_states, dones, truncateds, states_trainable, next_states_trainable):
         for i_env in range(len(actions)):
-            self.store_replay(states[i_env], actions[i_env], rewards[i_env], next_states[i_env], dones[i_env], truncateds[i_env], i_env = i_env)
+            self.store_replay(
+                state = states[i_env], action = actions[i_env], reward = rewards[i_env], next_state = next_states[i_env],
+                done = dones[i_env], truncated = truncateds[i_env],
+                state_trainable = states_trainable[i_env], next_state_trainable = next_states_trainable[i_env],
+                i_env = i_env)
         
-    def store_replay(self, state, action, reward, next_state, done, truncated, i_env = 0):
-        self.agents[i_env].store_replay(state=state, action= action, reward= reward, next_state= next_state, done= done, truncated= truncated)
+    def store_replay(self, state, action, reward, next_state, done, truncated, state_trainable, next_state_trainable, i_env = 0):
+        self.agents[i_env].store_replay(
+            state = state, action = action, reward = reward, next_state = next_state, done = done, truncated = truncated, 
+            state_trainable = state_trainable, next_state_trainable = next_state_trainable
+        )
                 
         # Store history
         self.episode_rewards[i_env].append(reward)
