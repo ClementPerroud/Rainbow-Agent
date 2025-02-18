@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow_addons as tfa
+from .noisy_dense import NoisyDense
 
 class AdversarialModelAgregator(tf.keras.Model):
     def call(self, outputs):
@@ -32,7 +32,7 @@ class ModelBuilder():
 
     
     def dense(self, *args, **kwargs):
-        if self.noisy: return tfa.layers.NoisyDense(*args, sigma= 0.1, **kwargs)
+        if self.noisy: return NoisyDense(*args, sigma= 0.1, **kwargs)
         return tf.keras.layers.Dense(*args, **kwargs)
         
 
@@ -105,6 +105,6 @@ class ModelBuilder():
         model.build(input_shape)
         if trainable:
             model.compile(
-                optimizer= tf.keras.optimizers.legacy.Adam(self.learning_rate, epsilon= 1.5E-4)
+                optimizer= tf.keras.optimizers.Adam(self.learning_rate, epsilon= 1.5E-4)
             )
         return model

@@ -46,8 +46,10 @@ class AgentManager:
         self.episode_rewards[i_env].append(reward)
 
         if done or truncated:
+            self.agents[i_env].episode_count += 1
             self.log(i_env)
             self.new_episode(i_env)
+
 
     def train(self):
         for i in range(self.simultaneous_training_env): self.episode_steps[i] += 1

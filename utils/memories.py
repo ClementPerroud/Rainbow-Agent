@@ -36,7 +36,7 @@ class ReplayMemory():
     def size(self):
         return min(self.i,self.capacity)
     
-    def sample(self, batch_size, episode_count, steps):
+    def sample(self, batch_size, episode_count = None, steps = None):
         size = self.size()
         if self.prioritized:
             beta = self.beta_function(episode_count, steps)
@@ -91,9 +91,9 @@ class RNNReplayMemory(ReplayMemory):
 class MultiStepsBuffer:
     def __init__(self, multi_steps, gamma):
         self.multi_steps = multi_steps
-
         self.gamma_array = np.array([gamma ** i for i in range(self.multi_steps)])
         self.reset()
+        
     def reset(self):
         self.states = [None]*self.multi_steps
         self.actions =  [None]*self.multi_steps

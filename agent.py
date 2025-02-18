@@ -21,7 +21,6 @@ class Rainbow:
             batch_size,
             epsilon_function = lambda episode, step : max(0.001, (1 - 5E-5)** step), 
             # Model buildes
-            window = 1, # 1 = Classic , 1> = RNN
             # Double DQN
             tau = 500, 
             # Multi Steps replay
@@ -43,10 +42,6 @@ class Rainbow:
         self.batch_size = batch_size
         self.train_every = train_every
         self.multi_steps = multi_steps
-
-
-        self.recurrent = window > 1
-        self.window = window
 
         self.nb_atoms = nb_atoms
         self.v_min = v_min
@@ -127,6 +122,7 @@ class Rainbow:
         return self.epsilon_function(self.episode_count + delta_episode, self.steps + delta_steps)
 
     def e_greedy_pick_action(self, state):
+
         epsilon = self.get_current_epsilon()
         if np.random.rand() < epsilon:
             return np.random.choice(self.nb_actions)
@@ -172,7 +168,8 @@ class Rainbow:
             loss_value = tf.math.reduce_mean(
                 tf.square(td_errors)*tf.cast(weights, tf.float32)
             )
-        self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
+        grads = tape.gradient(loss_value, self.model.trainable_weights)
+        self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         return loss_value, td_errors
 
     @tf.function
@@ -237,8 +234,8 @@ class Rainbow:
             td_errors = - tf.reduce_sum( m * tf.math.log(tf.clip_by_value(p__s_a , 1E-6, 1.0 - 1E-6)), axis = -1)
             td_errors_weighted = td_errors *tf.cast(weights, tf.float32)
             loss_value = tf.math.reduce_mean(td_errors_weighted)
-        
-        self.model.optimizer.minimize(loss_value, self.model.trainable_weights, tape = tape)
+        grads = tape.gradient(loss_value, self.model.trainable_weights)
+        self.model.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         return loss_value, td_errors
 
     def __getstate__(self):
