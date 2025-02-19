@@ -183,7 +183,7 @@ class Rainbow:
     # Distributional Core Functions
     @tf.function
     def _distributional_pick_actions(self, states):
-        return tf.argmax(self._distributional_predict_q_a(self.model,states, training = False), 1)
+        return tf.argmax(self._distributional_predict_q_a(self.model,states, training = False), axis = 1)
 
     @tf.function
     def _distributional_pick_action(self, state):
