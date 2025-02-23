@@ -21,7 +21,7 @@ class ReplayMemory():
             self.beta_function = beta_function
 
     def store(self, s, a, r, s_p, done, s_trainable, s_p_trainable):
-        if not s_trainable and not s_p_trainable: return 
+        if not s_trainable or not s_p_trainable: return 
         
         i = self.i % self.capacity
         self.states_memory[i] = s
